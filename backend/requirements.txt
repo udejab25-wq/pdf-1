@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+python-multipart
+pymupdf
+pdf2docx
+openpyxl
+# System tools: LibreOffice (soffice on PATH) and Tesseract OCR with language data

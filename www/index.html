@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PDF Studio</title>
+<style>
+:root{--bg:#f6f7f9;--sf:#fff;--tx:#1c2430;--mu:#667085;--bd:#d9dde3;--ac:#1d5fd1;--ac2:#e8f0fd;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161c;--sf:#1b212a;--tx:#e8ecf2;--mu:#9aa5b5;--bd:#2f3946;--ac:#6ea0ff;--ac2:#1f2d47;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#12161c;--sf:#1b212a;--tx:#e8ecf2;--mu:#9aa5b5;--bd:#2f3946;--ac:#6ea0ff;--ac2:#1f2d47;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:16px 20px 0;max-width:1100px;margin:auto}
+h1{margin:0;font-size:22px}
+.sub{color:var(--mu);margin:2px 0 12px;font-size:13px}
+main{max-width:1100px;margin:auto;padding:0 20px 40px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:10px;margin-bottom:12px}
+button,.btn,select{font:inherit;color:var(--tx);background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:7px 12px;cursor:pointer}
+button:hover,.btn:hover{border-color:var(--ac)}
+.pri{background:var(--ac);color:#fff;border-color:var(--ac)}
+.on{background:var(--ac2);border-color:var(--ac);color:var(--ac)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.tabs{display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--bd)}
+.tab{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:8px 14px}
+.tab.on{border-bottom-color:var(--ac);background:none}
+.pane{display:none}.pane.show{display:block}
+#stage{overflow:auto;max-height:76vh;background:#8a93a0;border-radius:10px;padding:14px;text-align:center}
+#wrap{position:relative;display:inline-block;background:#fff;box-shadow:0 2px 12px #0005;text-align:left}
+#ov{position:absolute;inset:0}
+#ov span{position:absolute;white-space:pre;line-height:1;font-family:Helvetica,Arial,sans-serif;color:transparent;outline:none;cursor:text}
+#ov span:hover{outline:1px dashed var(--ac)}
+#ov span:focus,#ov span.m{background:#fff;color:#000;outline:1px solid var(--ac)}
+#ov span.a{color:#000;outline:1px dashed #e0457b}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin:10px 0}
+.fmt{text-align:center;padding:12px 6px}
+#st{color:var(--mu);font-size:13px;margin:8px 0;min-height:20px}
+.note{color:var(--mu);font-size:13px}
+input[type=file]{display:none}
+</style><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#1d5fd1"><link rel="apple-touch-icon" href="icons/icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"></head><body>
+<header><h1>PDF Studio</h1><div class="sub">Edit PDF text and convert between PDF, Word, Excel, JPG, PNG and TXT. Everything runs in your browser: files never leave your device, and no internet is needed.</div></header>
+<main>
+<div class="bar"><label class="btn pri">Open PDF<input id="fpdf" type="file" accept=".pdf,application/pdf"></label><span id="fn" class="note">No PDF loaded</span></div>
+<div class="tabs"><button class="tab on" data-p="ed">Edit PDF</button><button class="tab" data-p="from">PDF to other formats</button><button class="tab" data-p="to">Other formats to PDF</button></div>
+
+<section id="ed" class="pane show">
+<div class="bar"><button id="pv">◀</button><span id="pg">–</span><button id="nx">▶</button>
+<button id="zo">−</button><button id="zi">+</button>
+<button id="ad">Add text</button><button id="sv" class="pri" disabled>Save edited PDF</button></div>
+<p class="note">Click any word to change it. Use “Add text” and click the page to place new text. Edits are applied by covering the original words, so the result is best for short corrections; scanned (image-only) PDFs have no editable text.</p>
+<div id="stage"><div id="wrap"><canvas id="cv"></canvas><div id="ov"></div></div></div>
+</section>
+
+<section id="from" class="pane"><div class="card">
+<b>Convert the open PDF to:</b>
+<div class="grid" id="fmts"></div>
+<p class="note">Word and Excel exports rebuild text from the PDF’s layout (lines, and columns by spacing). Images are rendered at 2× resolution; multi-page images download as a ZIP.</p>
+</div></section>
+
+<section id="to" class="pane"><div class="card">
+<b>Create a PDF from:</b>
+<p class="note">JPG, PNG, WEBP, GIF (one or many images become one PDF), DOCX (text), XLSX/XLS/CSV (cell data) or TXT.</p>
+<label class="btn">Choose files<input id="fany" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.docx,.xlsx,.xls,.csv,.txt,image/*"></label>
+<span id="fl" class="note"></span> <button id="mk" class="pri" disabled>Create PDF</button>
+</div></section>
+<div id="st"></div>
+</main>
+
+<script src="vendor/pdf.min.js"></script>
+<script src="vendor/pdf.worker.min.js"></script>
+<script src="vendor/pdf-lib.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/mammoth.browser.min.js"></script>
+<script>
+const $=id=>document.getElementById(id),st=m=>$('st').textContent=m||'';
+let pdf=null,bytes=null,name='document',cur=1,S=1.4,addMode=false,edits={},vp=null,files=[];
+try{pdfjsLib.GlobalWorkerOptions.workerSrc='vendor/pdf.worker.min.js'}catch(e){st('Libraries failed to load. Check your connection.')}
+
+// ---- helpers
+async function save(fn,data){
+  let dl=null;try{dl=await window.claude?.use('downloads')}catch(e){}
+  if(dl){try{await dl.save({filename:fn,data});st('Saved '+fn);return}catch(e){if(e&&e.code==='declined'){st('Save cancelled');return}}}
+  const u=URL.createObjectURL(data instanceof Blob?data:new Blob([data])),a=document.createElement('a');
+  a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);st('Saved '+fn);
+}
+const blobOf=(cvs,t,q)=>new Promise(r=>cvs.toBlob(r,t,q));
+const need=()=>{if(!pdf){st('Open a PDF first.');return false}return true};
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('show',p.id===b.dataset.p))});
+
+// ---- open PDF
+$('fpdf').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;st('Loading…');
+  try{bytes=new Uint8Array(await f.arrayBuffer());pdf=await pdfjsLib.getDocument({data:bytes.slice()}).promise;
+    name=f.name.replace(/\.pdf$/i,'');edits={};cur=1;$('fn').textContent=f.name+' · '+pdf.numPages+' pages';$('sv').disabled=false;await show(1);st('')}
+  catch(err){st('Could not open this PDF: '+err.message)}
+};
+
+// ---- editor
+async function show(n){
+  const pg=await pdf.getPage(n);vp=pg.getViewport({scale:S});const cv=$('cv');
+  cv.width=vp.width;cv.height=vp.height;$('wrap').style.width=vp.width+'px';$('wrap').style.height=vp.height+'px';
+  await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+  if(!edits[n]){const tc=await pg.getTextContent();edits[n]=tc.items.filter(i=>i.str.trim()).map(i=>({x:i.transform[4],y:i.transform[5],w:i.width,s:Math.hypot(i.transform[2],i.transform[3])||10,o:i.str,t:i.str}))}
+  const ov=$('ov');ov.innerHTML='';edits[n].forEach(o=>ov.appendChild(mk(o)));
+  $('pg').textContent='Page '+n+' / '+pdf.numPages;cur=n;
+  ov.style.cursor=addMode?'crosshair':'default';
+}
+function mk(o){
+  const [px,py]=vp.convertToViewportPoint(o.x,o.y),f=o.s*S,sp=document.createElement('span');
+  sp.contentEditable='true';sp.spellcheck=false;sp.textContent=o.t;
+  Object.assign(sp.style,{left:px+'px',top:(py-f*.82)+'px',fontSize:f+'px',minWidth:Math.max(o.w*S,f)+'px',height:f*1.15+'px'});
+  if(o.add)sp.className='a';else if(o.t!==o.o)sp.classList.add('m');
+  sp.oninput=()=>{o.t=sp.textContent;if(!o.add)sp.classList.toggle('m',o.t!==o.o)};
+  sp.onclick=e=>e.stopPropagation();return sp;
+}
+$('ov').onclick=e=>{
+  if(!addMode||!pdf)return;const r=$('ov').getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,s=12,
+  [x,y]=vp.convertToPdfPoint(px,py+s*S*.82),o={x,y,w:60,s,o:'',t:'New text',add:true};
+  edits[cur].push(o);const sp=mk(o);$('ov').appendChild(sp);sp.focus();document.getSelection().selectAllChildren(sp);
+};
+$('ad').onclick=()=>{addMode=!addMode;$('ad').classList.toggle('on',addMode);$('ov').style.cursor=addMode?'crosshair':'default'};
+$('pv').onclick=()=>pdf&&cur>1&&show(cur-1);$('nx').onclick=()=>pdf&&cur<pdf.numPages&&show(cur+1);
+$('zi').onclick=()=>{if(pdf){S=Math.min(3,S+.2);show(cur)}};$('zo').onclick=()=>{if(pdf){S=Math.max(.6,S-.2);show(cur)}};
+const clean=t=>t.replace(/[\u2018\u2019]/g,"'").replace(/[\u201c\u201d]/g,'"').replace(/[\u2013\u2014]/g,'-').replace(/\u2026/g,'...').replace(/[^\x20-\xFF]/g,'?');
+$('sv').onclick=async()=>{
+  if(!need())return;st('Applying edits…');
+  try{const {PDFDocument,StandardFonts,rgb}=PDFLib,doc=await PDFDocument.load(bytes,{ignoreEncryption:true}),font=await doc.embedFont(StandardFonts.Helvetica),pages=doc.getPages();let n=0;
+    for(const k in edits){const p=pages[k-1];if(!p)continue;
+      for(const o of edits[k]){
+        if(o.add){if(o.t.trim()){p.drawText(clean(o.t),{x:o.x,y:o.y,size:o.s,font,color:rgb(0,0,0)});n++}continue}
+        if(o.t===o.o)continue;n++;
+        p.drawRectangle({x:o.x-1,y:o.y-o.s*.25,width:o.w+2,height:o.s*1.2,color:rgb(1,1,1)});
+        if(o.t.trim())p.drawText(clean(o.t),{x:o.x,y:o.y,size:o.s,font,color:rgb(0,0,0)});
+      }}
+    if(!n){st('No changes to save yet.');return}
+    await save(name+'-edited.pdf',new Blob([await doc.save()],{type:'application/pdf'}))}
+  catch(err){st('Save failed: '+err.message)}
+};
+
+// ---- PDF -> other formats
+const FM=[['PNG','png'],['JPG','jpg'],['Word (DOCX)','docx'],['Excel (XLSX)','xlsx'],['Text (TXT)','txt'],['CSV','csv']];
+FM.forEach(([l,k])=>{const b=document.createElement('button');b.className='fmt';b.textContent=l;b.onclick=()=>exportAs(k);$('fmts').appendChild(b)});
+async function rows(pg){
+  const tc=await pg.getTextContent(),it=tc.items.filter(i=>i.str.trim()).map(i=>({x:i.transform[4],y:i.transform[5],w:i.width,s:Math.hypot(i.transform[2],i.transform[3])||10,t:i.str}));
+  it.sort((a,b)=>b.y-a.y||a.x-b.x);const L=[];
+  for(const i of it){const l=L[L.length-1];if(l&&Math.abs(l.y-i.y)<i.s*.5)l.c.push(i);else L.push({y:i.y,c:[i]})}
+  return L.map(l=>{l.c.sort((a,b)=>a.x-b.x);const cells=[];let end=-1e9;
+    for(const i of l.c){if(cells.length&&i.x-end<i.s*.9)cells[cells.length-1]+=(i.x-end>i.s*.15?' ':'')+i.t;else cells.push(i.t);end=i.x+i.w}return cells});
+}
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+async function exportAs(k){
+  if(!need())return;const N=pdf.numPages;
+  try{
+    if(k==='png'||k==='jpg'){const z=new JSZip(),mime=k==='png'?'image/png':'image/jpeg';let one=null;
+      for(let n=1;n<=N;n++){st('Rendering page '+n+' of '+N+'…');const pg=await pdf.getPage(n),v=pg.getViewport({scale:2}),c=document.createElement('canvas'),x=c.getContext('2d');
+        c.width=v.width;c.height=v.height;x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);await pg.render({canvasContext:x,viewport:v}).promise;
+        one=await blobOf(c,mime,.92);z.file(`${name}-page${n}.${k}`,one)}
+      return N===1?save(`${name}.${k}`,one):save(`${name}-${k}.zip`,await z.generateAsync({type:'blob'}))}
+    const pages=[];for(let n=1;n<=N;n++){st('Reading page '+n+' of '+N+'…');pages.push(await rows(await pdf.getPage(n)))}
+    if(k==='txt')return save(name+'.txt',new Blob([pages.map(p=>p.map(r=>r.join(' ')).join('\n')).join('\n\n')],{type:'text/plain'}));
+    if(k==='csv'){const q=s=>'"'+s.replace(/"/g,'""')+'"';return save(name+'.csv',new Blob([pages.flat().map(r=>r.map(q).join(',')).join('\n')],{type:'text/csv'}))}
+    if(k==='xlsx'){const wb=XLSX.utils.book_new();pages.forEach((p,i)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(p.length?p:[['']]),'Page '+(i+1)));
+      return save(name+'.xlsx',new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})]))}
+    if(k==='docx'){const body=pages.map((p,i)=>p.map(r=>`<w:p><w:r><w:t xml:space="preserve">${esc(r.join('  '))}</w:t></w:r></w:p>`).join('')+(i<N-1?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>':'')).join(''),z=new JSZip();
+      z.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+      z.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+      z.file('word/document.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}</w:body></w:document>`);
+      return save(name+'.docx',await z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}))}
+  }catch(err){st('Conversion failed: '+err.message)}
+}
+
+// ---- other formats -> PDF
+$('fany').onchange=e=>{files=[...e.target.files];$('fl').textContent=files.map(f=>f.name).join(', ');$('mk').disabled=!files.length};
+async function textPdf(lines){
+  const {PDFDocument,StandardFonts,rgb}=PDFLib,d=await PDFDocument.create(),f=await d.embedFont(StandardFonts.Courier),W=595,H=842,M=50,sz=10;let p=d.addPage([W,H]),y=H-M;
+  const mw=Math.floor((W-2*M)/f.widthOfTextAtSize('M',sz));
+  for(const raw of lines){const t=clean(raw.replace(/\t/g,'    '));const parts=t.length?t.match(new RegExp('.{1,'+mw+'}','g')):[''];
+    for(const s of parts){if(y<M){p=d.addPage([W,H]);y=H-M}p.drawText(s,{x:M,y,size:sz,font:f,color:rgb(0,0,0)});y-=sz*1.4}}
+  return d;
+}
+$('mk').onclick=async()=>{
+  try{const {PDFDocument}=PDFLib,imgs=files.filter(f=>f.type.startsWith('image/')),oth=files.filter(f=>!f.type.startsWith('image/'));let doc,out;
+    if(imgs.length){doc=await PDFDocument.create();
+      for(const f of imgs){st('Adding '+f.name+'…');const bm=await createImageBitmap(f),c=document.createElement('canvas');c.width=bm.width;c.height=bm.height;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(bm,0,0);
+        const im=await doc.embedJpg(new Uint8Array(await (await blobOf(c,'image/jpeg',.92)).arrayBuffer())),w=Math.min(595,im.width),h=im.height*w/im.width,p=doc.addPage([w,h]);p.drawImage(im,{x:0,y:0,width:w,height:h})}
+      out=imgs.length===1?imgs[0].name.replace(/\.\w+$/,''):'images'}
+    else{const f=oth[0],ext=f.name.split('.').pop().toLowerCase();let lines=[];st('Converting '+f.name+'…');
+      if(ext==='docx')lines=(await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value.split('\n');
+      else if(ext==='xlsx'||ext==='xls'||ext==='csv'){const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});wb.SheetNames.forEach(sn=>{lines.push('== '+sn+' ==');XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''}).forEach(r=>lines.push(r.join(' | ')));lines.push('')})}
+      else lines=(await f.text()).split(/\r?\n/);
+      doc=await textPdf(lines);out=f.name.replace(/\.\w+$/,'')}
+    await save(out+'.pdf',new Blob([await doc.save()],{type:'application/pdf'}))}
+  catch(err){st('Could not create PDF: '+err.message)}
+};
+</script><script src="vendor/fontkit.umd.min.js"></script><script src="tools.js"></script><script src="platform.js"></script></body></html>
